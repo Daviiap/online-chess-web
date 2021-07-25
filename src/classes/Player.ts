@@ -4,13 +4,21 @@ export class Player {
   private X: number;
   private Y: number;
   private score: number;
+  private isPrincipal: boolean;
 
-  public constructor(x: number, y: number, name: string, id: string) {
+  public constructor(
+    x: number,
+    y: number,
+    name: string,
+    id: string,
+    isPrincipal: boolean = false
+  ) {
     this.X = x;
     this.Y = y;
     this.name = name;
     this.id = id;
     this.score = 0;
+    this.isPrincipal = isPrincipal;
   }
 
   public getX(): number {
@@ -19,6 +27,10 @@ export class Player {
 
   public getY(): number {
     return this.Y;
+  }
+
+  public getIsPrincipal() {
+    return this.isPrincipal;
   }
 
   public getId(): string {

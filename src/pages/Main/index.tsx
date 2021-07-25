@@ -5,54 +5,118 @@ import { Player } from "../../classes/Player";
 import { Fruit } from "../../classes/Fruit";
 
 import { Container, Map as MapElement } from "./styles";
-import { Socket } from "../../classes/Socket";
+import io from "socket.io-client";
+import { gameState } from "../../interfaces/gameState";
 
 const Main: React.FC = () => {
   useEffect(() => {
-    const canvas = document.getElementById("map") as HTMLCanvasElement;
+    const socket = io("http://localhost:3000").on("connect", () => {
+      socket.on("load", (state: gameState) => {
+        const players = Object.entries(state.players).reduce(
+          (payload, [key, value]) => {
+            return {
+              ...payload,
+              [key]: new Player(
+                value.X,
+                value.Y,
+                value.name,
+                value.id,
+                value.id === socket.id
+              ),
+            };
+          },
+          {} as Record<string, Player>
+        );
+        const fruits = Object.entries(state.fruits).reduce(
+          (payload, [key, value]) => {
+            return {
+              ...payload,
+              [key]: new Fruit(value.X, value.Y, value.id),
+            };
+          },
+          {} as Record<string, Fruit>
+        );
 
-    const socket = new Socket();
-
-    const fruits = {
-      fruit1: new Fruit(5, 5, "fruit1"),
-    } as Record<string, Fruit>;
-    const players = {
-      player1: new Player(0, 0, "Davi", "player1"),
-      player2: new Player(4, 7, "Thiago", "player2"),
-      player3: new Player(3, 9, "Pedro", "player3"),
-    } as Record<string, Player>;
-
-    const map = new Map(10, 10, canvas, fruits, players, "player1");
-
-    const renderMap = () => {
-      map.render();
-      requestAnimationFrame(renderMap);
-    };
-    renderMap();
-
-    document.addEventListener("keydown", (event) => {
-      const actions = {
-        ArrowUp: () => {
-          map.movePlayer("player1", "up");
-        },
-        ArrowDown: () => {
-          map.movePlayer("player1", "down");
-        },
-        ArrowLeft: () => {
-          map.movePlayer("player1", "left");
-        },
-        ArrowRight: () => {
-          map.movePlayer("player1", "right");
-        },
-      } as Record<string, Function>;
-
-      actions[event.key] && actions[event.key]();
+        startGame(state, players, fruits);
+      });
     });
-  }, []);
+
+    const startGame = (
+      state: gameState,
+      players: Record<string, Player>,
+      fruits: Record<string, Fruit>
+    ) => {
+      const canvas = document.getElementById("map") as HTMLCanvasElement;
+      const map = new Map(state.width, state.height, canvas, fruits, players);
+
+      socket.on("update", (state: gameState) => {
+        const players = Object.entries(state.players).reduce(
+          (payload, [key, value]) => {
+            return {
+              ...payload,
+              [key]: new Player(
+                value.X,
+                value.Y,
+                value.name,
+                value.id,
+                value.id === socket.id
+              ),
+            };
+          },
+          {} as Record<string, Player>
+        );
+        const fruits = Object.entries(state.fruits).reduce(
+          (payload, [key, value]) => {
+            return {
+              ...payload,
+              [key]: new Fruit(value.X, value.Y, value.id),
+            };
+          },
+          {} as Record<string, Fruit>
+        );
+
+        map.updateState(fruits, players);
+      });
+
+      socket.on("move-player", (event) => {
+        const { playerId, direction } = event;
+        map.movePlayer(playerId, direction);
+      });
+
+      document.addEventListener("keydown", (event) => {
+        const actions = {
+          ArrowUp: () => {
+            map.movePlayer(socket.id, "up");
+            socket.emit("move", { playerId: socket.id, direction: "up" });
+          },
+          ArrowDown: () => {
+            map.movePlayer(socket.id, "down");
+            socket.emit("move", { playerId: socket.id, direction: "down" });
+          },
+          ArrowLeft: () => {
+            map.movePlayer(socket.id, "left");
+            socket.emit("move", { playerId: socket.id, direction: "left" });
+          },
+          ArrowRight: () => {
+            map.movePlayer(socket.id, "right");
+            socket.emit("move", { playerId: socket.id, direction: "right" });
+          },
+        } as Record<string, Function>;
+
+        actions[event.key] && actions[event.key]();
+      });
+
+      const renderMap = () => {
+        map.render();
+        requestAnimationFrame(renderMap);
+      };
+      renderMap();
+    };
+  });
 
   return (
     <Container>
-      <MapElement width="10" height="10" id="map" />
+      <MapElement id="map" />
     </Container>
   );
 };
